@@ -10,6 +10,24 @@ Built from the production system running PekaAI's socials since
 2026-10-19, including the operating lessons paid for with real reach data
 (see `payload/templates/learnings.md`).
 
+![Sample carousel rendered by the installer smoke test with a placeholder brand](docs/smoke-test-cover.png)
+
+## Repository layout
+
+```
+homeless-media-automation/
+├── README.md                  this file
+├── install.sh                 the installer (idempotent)
+├── config/
+│   └── hm.config.example.json every setting, documented inline
+├── payload/
+│   ├── hm/                    scout.py, filter.py, designer.py, requirements.txt, README.md
+│   ├── templates/             engagement-playbook.md, learnings.md, trending.md (seeded per install)
+│   └── cron/                  hm-daily.cron.md (token template rendered into SETUP-CRON.md)
+└── docs/
+    └── smoke-test-cover.png   reference render from a test install
+```
+
 ## What gets installed
 
 ```
@@ -104,3 +122,45 @@ in the payload): `FEEDS` in `scout.py`, keyword lists in `filter.py`,
   appends to `learnings.md`, a twice-weekly trend watch that rewrites
   `trending.md`, and a daily report comparing planned vs published slots.
   The playbook's improvement loop describes how they feed each other.
+
+## Updating an existing install
+
+Pull the new version of this repo and re-run the installer with the same
+config. Code files, the venv, and `SETUP-CRON.md` are refreshed; runtime
+state (`news.db`, `posted.log`, `learnings.md`, `trending.md`,
+`engagement-playbook.md`, `assets/mascot.png`, `out/`, `work/`) is never
+overwritten. If `SETUP-CRON.md` changed materially, ask Muse to update
+the cron body from the new file.
+
+## Uninstalling
+
+1. Delete or disable the daily cron in Muse.
+2. Delete the `<content_dir>` workspace. Nothing is installed outside it
+   except the cron definition itself (no system packages, no services).
+
+## Troubleshooting
+
+- **Installer says the DejaVu fonts are missing** — `sudo apt install -y
+  fonts-dejavu`, then re-run. The designer hard-requires them.
+- **`feedparser` / `Pillow` import fails after install** — the venv lives
+  at `<content_dir>/hm/venv`; delete it and re-run the installer to
+  rebuild. Check network access to PyPI.
+- **Scout self-test shows a feed as failed** — feeds go down or block
+  bots occasionally; the scout skips failures and the daily run retries.
+  Replace a permanently dead feed in the `FEEDS` list of the installed
+  `hm/scout.py` (and in this repo's payload if it should stay fixed).
+- **Smoke test carousel fails or the header looks wrong** — the mascot
+  path is patched into `hm/designer.py` at install time; confirm
+  `<content_dir>/assets/mascot.png` exists and is a PNG with a black
+  background. A missing mascot is the usual cause.
+- **Cron runs but a publish hangs** — Threads/FB publishes can wait on a
+  user approval tap in Muse. That is the platform's rule, not a stuck
+  job; approve it and the run continues. Never start a second run to
+  "unstick" it: verify the platform post lists first (double-post risk).
+- **A post went out but its link 404s in the report** — the cron resolves
+  canonical Threads URLs itself; if one still fails, the post was likely
+  removed on-platform. Check the account in the Threads app.
+- **Two editions on the same day** — the cron's catch-up is `latest`;
+  after long downtime, confirm `posted.log` before letting a manual
+  re-run publish a second edition.
+
